@@ -36,7 +36,7 @@
 // Servo pin
 //
 #define SERVO0_PIN         P1_23   // SERVO P1.23
-#define SERVO1_PIN         P2_00   // SERVO P2.0
+//#define SERVO1_PIN         P2_00   // Now use for neopixel pin
 
 //
 // Limit Switches
@@ -164,9 +164,9 @@
 //
 #define HEATER_BED_PIN     P2_05
 #define HEATER_0_PIN       P2_07
-#define HEATER_1_PIN       P2_06
+#define CONTROLLER_FAN_PIN P2_04 // Change From Heater 1 to Control Fan Pin
 #ifndef FAN_PIN
-  #define FAN_PIN          P2_04
+  #define FAN_PIN          P2_06
 #endif
 
 //

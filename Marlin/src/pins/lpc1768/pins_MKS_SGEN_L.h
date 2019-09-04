@@ -179,10 +179,10 @@
 
 /**
  *                _____                                            _____
- * (BEEPER) 1.31 | · · | 1.30 (BTN_ENC)          (MISO)       0.8 | · · | 0.7  (SD_SCK)
+ * (BEEPER) 1.31 | · · | 1.30 (BTN_ENC)          (MISO)      0.08 | · · | 0.07 (SD_SCK)
  * (LCD_EN) 0.18 | · · | 0.16 (LCD_RS)           (BTN_EN1)   3.25 | · · | 0.28 (SD_CS2)
  * (LCD_D4) 0.15 | · · | 0.17 (LCD_D5)           (BTN_EN2)   3.26 | · · | 1.20 (SD_MOSI)
- * (LCD_D6)  1.0 | · · | 1.22 (LCD_D7)           (SD_DETECT) 0.27 | · · | RST
+ * (LCD_D6) 1.00 | · · | 1.22 (LCD_D7)           (SD_DETECT) 0.27 | · · | RST
  *           GND | · · | 5V                                   GND | · · | NC
  *                -----                                            -----
  *                EXP1                                             EXP2
@@ -215,7 +215,7 @@
     #if ENABLED(FYSETC_MINI_12864)
       #define DOGLCD_CS    P0_18
       #define DOGLCD_A0    P0_16
-      #define DOGLCD_SCK   P0_7
+      #define DOGLCD_SCK   P0_07
       #define DOGLCD_MOSI  P1_20
       #define FORCE_SOFT_SPI
 
@@ -231,7 +231,7 @@
           #define RGB_LED_R_PIN P0_17
         #endif
         #ifndef RGB_LED_G_PIN
-          #define RGB_LED_G_PIN P1_0
+          #define RGB_LED_G_PIN P1_00
         #endif
         #ifndef RGB_LED_B_PIN
           #define RGB_LED_B_PIN P1_22
@@ -244,12 +244,12 @@
 
       #if ENABLED(MKS_MINI_12864)
         #define DOGLCD_CS  P0_17
-        #define DOGLCD_A0  P1_0
+        #define DOGLCD_A0  P1_00
       #endif
 
       #if ENABLED(ULTIPANEL)
         #define LCD_PINS_D5 P0_17
-        #define LCD_PINS_D6 P1_0
+        #define LCD_PINS_D6 P1_00
         #define LCD_PINS_D7 P1_22
       #endif
 

@@ -179,10 +179,10 @@
 
 /**
  *                _____                                            _____
- * (BEEPER) 1.31 | · · | 1.30 (BTN_ENC)          (MISO)      0.08 | · · | 0.07 (SD_SCK)
+ * (BEEPER) 1.31 | · · | 1.30 (BTN_ENC)          (MISO)       0.8 | · · | 0.7  (SD_SCK)
  * (LCD_EN) 0.18 | · · | 0.16 (LCD_RS)           (BTN_EN1)   3.25 | · · | 0.28 (SD_CS2)
  * (LCD_D4) 0.15 | · · | 0.17 (LCD_D5)           (BTN_EN2)   3.26 | · · | 1.20 (SD_MOSI)
- * (LCD_D6) 1.00 | · · | 1.22 (LCD_D7)           (SD_DETECT) 0.27 | · · | RST
+ * (LCD_D6)  1.0 | · · | 1.22 (LCD_D7)           (SD_DETECT) 0.27 | · · | RST
  *           GND | · · | 5V                                   GND | · · | NC
  *                -----                                            -----
  *                EXP1                                             EXP2

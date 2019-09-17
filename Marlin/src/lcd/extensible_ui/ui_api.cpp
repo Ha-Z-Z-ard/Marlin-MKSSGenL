@@ -168,8 +168,10 @@ namespace ExtUI {
   }
 
   void enableHeater(const extruder_t extruder) {
-    #if HEATER_IDLE_HANDLER
+    #if HOTENDS && HEATER_IDLE_HANDLER
       thermalManager.reset_heater_idle_timer(extruder - E0);
+    #else
+      UNUSED(extruder);
     #endif
   }
 
@@ -184,15 +186,23 @@ namespace ExtUI {
         #if HAS_HEATED_CHAMBER
           case CHAMBER: return; // Chamber has no idle timer
         #endif
-        default: thermalManager.reset_heater_idle_timer(heater - H0);
+        default:
+          #if HOTENDS
+            thermalManager.reset_heater_idle_timer(heater - H0);
+          #endif
+          break;
       }
+    #else
+      UNUSED(heater);
     #endif
   }
 
   bool isHeaterIdle(const extruder_t extruder) {
     return false
-      #if HEATER_IDLE_HANDLER
+      #if HOTENDS && HEATER_IDLE_HANDLER
         || thermalManager.hotend_idle[extruder - E0].timed_out
+      #else
+        ; UNUSED(extruder)
       #endif
     ;
   }
@@ -206,9 +216,15 @@ namespace ExtUI {
         #if HAS_HEATED_CHAMBER
           case CHAMBER: return false; // Chamber has no idle timer
         #endif
-        default: return thermalManager.hotend_idle[heater - H0].timed_out;
+        default:
+          #if HOTENDS
+            return thermalManager.hotend_idle[heater - H0].timed_out;
+          #else
+            return false;
+          #endif
       }
     #else
+      UNUSED(heater);
       return false;
     #endif
   }
@@ -513,12 +529,18 @@ namespace ExtUI {
       switch (axis) {
         #if X_SENSORLESS && AXIS_HAS_STALLGUARD(X)
           case X: stepperX.homing_threshold(value); break;
+        #else
+          UNUSED(value);
         #endif
         #if Y_SENSORLESS && AXIS_HAS_STALLGUARD(Y)
           case Y: stepperY.homing_threshold(value); break;
+        #else
+          UNUSED(value);
         #endif
         #if Z_SENSORLESS && AXIS_HAS_STALLGUARD(Z)
           case Z: stepperZ.homing_threshold(value); break;
+        #else
+          UNUSED(value);
         #endif
         default: break;
       }
@@ -841,22 +863,28 @@ namespace ExtUI {
   }
 
   void setTargetTemp_celsius(float value, const heater_t heater) {
-    constexpr int16_t heater_maxtemp[HOTENDS] = ARRAY_BY_HOTENDS(HEATER_0_MAXTEMP, HEATER_1_MAXTEMP, HEATER_2_MAXTEMP, HEATER_3_MAXTEMP, HEATER_4_MAXTEMP);
-    const int16_t e = heater - H0;
     enableHeater(heater);
     #if HAS_HEATED_BED
       if (heater == BED)
         thermalManager.setTargetBed(clamp(value, 0, BED_MAXTEMP - 10));
       else
     #endif
-        thermalManager.setTargetHotend(clamp(value, 0, heater_maxtemp[e] - 15), e);
+      {
+        #if HOTENDS
+          static constexpr int16_t heater_maxtemp[HOTENDS] = ARRAY_BY_HOTENDS(HEATER_0_MAXTEMP, HEATER_1_MAXTEMP, HEATER_2_MAXTEMP, HEATER_3_MAXTEMP, HEATER_4_MAXTEMP);
+          const int16_t e = heater - H0;
+          thermalManager.setTargetHotend(clamp(value, 0, heater_maxtemp[e] - 15), e);
+        #endif
+      }
   }
 
   void setTargetTemp_celsius(float value, const extruder_t extruder) {
-    constexpr int16_t heater_maxtemp[HOTENDS] = ARRAY_BY_HOTENDS(HEATER_0_MAXTEMP, HEATER_1_MAXTEMP, HEATER_2_MAXTEMP, HEATER_3_MAXTEMP, HEATER_4_MAXTEMP);
-    const int16_t e = extruder - E0;
-    enableHeater(extruder);
-    thermalManager.setTargetHotend(clamp(value, 0, heater_maxtemp[e] - 15), e);
+    #if HOTENDS
+      constexpr int16_t heater_maxtemp[HOTENDS] = ARRAY_BY_HOTENDS(HEATER_0_MAXTEMP, HEATER_1_MAXTEMP, HEATER_2_MAXTEMP, HEATER_3_MAXTEMP, HEATER_4_MAXTEMP);
+      const int16_t e = extruder - E0;
+      enableHeater(extruder);
+      thermalManager.setTargetHotend(clamp(value, 0, heater_maxtemp[e] - 15), e);
+    #endif
   }
 
   void setTargetFan_percent(const float value, const fan_t fan) {
@@ -873,7 +901,7 @@ namespace ExtUI {
     feedrate_percentage = clamp(value, 10, 500);
   }
 
-  void setUserConfirmed(void) {
+  void setUserConfirmed() {
     #if HAS_RESUME_CONTINUE
       wait_for_user = false;
     #endif
@@ -896,7 +924,7 @@ namespace ExtUI {
   }
 
   bool isMediaInserted() {
-    return IFSD(IS_SD_INSERTED() && card.isDetected(), false);
+    return IFSD(IS_SD_INSERTED() && card.isMounted(), false);
   }
 
   void pausePrint() {
@@ -953,8 +981,7 @@ namespace ExtUI {
 
   bool FileList::isAtRootDir() {
     #if ENABLED(SDSUPPORT)
-      card.getWorkDirName();
-      return card.filename[0] == '/';
+      card.flag.workDirIsRoot;
     #else
       return true;
     #endif
@@ -993,14 +1020,14 @@ void MarlinUI::update() {
     if (sd_status != last_sd_status) {
       last_sd_status = sd_status;
       if (sd_status) {
-        card.initsd();
-        if (card.isDetected())
+        card.mount();
+        if (card.isMounted())
           ExtUI::onMediaInserted();
         else
           ExtUI::onMediaError();
       }
       else {
-        const bool ok = card.isDetected();
+        const bool ok = card.isMounted();
         card.release();
         if (ok) ExtUI::onMediaRemoved();
       }

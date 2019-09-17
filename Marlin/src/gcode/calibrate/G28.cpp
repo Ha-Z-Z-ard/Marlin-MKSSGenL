@@ -473,13 +473,4 @@ void GcodeSuite::G28(const bool always_home_all) {
       L6470.set_param(cv, L6470_ABS_POS, stepper.position((AxisEnum)L6470.axis_xref[cv]));
     }
   #endif
-
-  #if ENABLED(Nozzle_to_Zero_Zero)
-    if (all_axes_known) do_blocking_move_to_z(10, HOMING_FEEDRATE_Z);
-	     safe_delay(500);
-    if (all_axes_known) do_blocking_move_to_xy(0, 0, HOMING_FEEDRATE_XY);
-	 	 safe_delay(500);
-    if (all_axes_known) do_blocking_move_to_z(1.5, HOMING_FEEDRATE_Z);
-	 report_current_position();
-  #endif
 }

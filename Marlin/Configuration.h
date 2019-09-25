@@ -541,7 +541,6 @@
   //#define DEFAULT_bedKi 1.41
   //#define DEFAULT_bedKd 1675.16
 
-  // ANET A8
   // Ultrabase 12v + 0.3mm Heat conducting into 4mm borosilicate (PID-Autotune: M303 E-1 S60 C5):
   #define DEFAULT_bedKp 295.00
   #define DEFAULT_bedKi 35.65

@@ -39,7 +39,7 @@
 #endif
 
 void lcd_sd_updir() {
-  ui.encoderPosition = card.updir() ? ENCODER_STEPS_PER_MENU_ITEM : 0;
+  ui.encoderPosition = card.cdup() ? ENCODER_STEPS_PER_MENU_ITEM : 0;
   encoderTopLine = 0;
   screen_changed = true;
   ui.refresh();
@@ -82,10 +82,14 @@ inline void sdcard_start_selected_file() {
 #if ENABLED(SD_MENU_CONFIRM_START)
 
   void menu_sd_confirm() {
+    char * const longest = card.longest_filename();
+    char buffer[strlen(longest) + 2];
+    buffer[0] = ' ';
+    strcpy(buffer + 1, longest);
     do_select_screen(
       PSTR(MSG_BUTTON_PRINT), PSTR(MSG_BUTTON_CANCEL),
       sdcard_start_selected_file, ui.goto_previous_screen,
-      PSTR(MSG_START_PRINT " "), card.longest_filename(), PSTR("?")
+      PSTR(MSG_START_PRINT), buffer, PSTR("?")
     );
   }
 
@@ -93,7 +97,7 @@ inline void sdcard_start_selected_file() {
 
 class MenuItem_sdfile {
   public:
-    static void action(CardReader &) {
+    static void action(PGM_P const pstr, CardReader &) {
       #if ENABLED(SD_REPRINT_LAST_SELECTED_FILE)
         // Save menu state for the selected file
         sd_encoder_position = ui.encoderPosition;
@@ -101,17 +105,18 @@ class MenuItem_sdfile {
         sd_items = screen_items;
       #endif
       #if ENABLED(SD_MENU_CONFIRM_START)
-        MenuItem_submenu::action(menu_sd_confirm);
+        MenuItem_submenu::action(pstr, menu_sd_confirm);
       #else
         sdcard_start_selected_file();
+        UNUSED(pstr);
       #endif
     }
 };
 
 class MenuItem_sdfolder {
   public:
-    static void action(CardReader &theCard) {
-      card.chdir(theCard.filename);
+    static void action(PGM_P const, CardReader &theCard) {
+      card.cd(theCard.filename);
       encoderTopLine = 0;
       ui.encoderPosition = 2 * (ENCODER_STEPS_PER_MENU_ITEM);
       screen_changed = true;
@@ -133,14 +138,14 @@ void menu_media() {
   #endif
 
   START_MENU();
-  MENU_BACK(MSG_MAIN);
+  BACK_ITEM(MSG_MAIN);
   if (card.flag.workDirIsRoot) {
     #if !PIN_EXISTS(SD_DETECT)
-      MENU_ITEM(function, LCD_STR_REFRESH MSG_REFRESH, lcd_sd_refresh);
+      ACTION_ITEM(LCD_STR_REFRESH MSG_REFRESH, lcd_sd_refresh);
     #endif
   }
   else if (card.isMounted())
-    MENU_ITEM(function, LCD_STR_FOLDER "..", lcd_sd_updir);
+    ACTION_ITEM(LCD_STR_FOLDER "..", lcd_sd_updir);
 
   if (ui.should_draw()) for (uint16_t i = 0; i < fileCnt; i++) {
     if (_menuLineNr == _thisItemNr) {
@@ -158,7 +163,7 @@ void menu_media() {
         MENU_ITEM(sdfile, MSG_MEDIA_MENU, card);
     }
     else {
-      MENU_ITEM_DUMMY();
+      SKIP_ITEM();
     }
   }
   END_MENU();

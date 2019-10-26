@@ -762,7 +762,7 @@
  *   M204 R    Retract Acceleration
  *   M204 T    Travel Acceleration
  */
-#define DEFAULT_ACCELERATION          650     // X, Y, Z and E acceleration for printing moves
+#define DEFAULT_ACCELERATION          600     // X, Y, Z and E acceleration for printing moves
 #define DEFAULT_RETRACT_ACCELERATION  1000    // E acceleration for retracts
 #define DEFAULT_TRAVEL_ACCELERATION   1000    // X, Y, Z acceleration for travel (non printing) moves
 
@@ -1378,9 +1378,9 @@
 
 #if ENABLED(SKEW_CORRECTION)
   // Input all length measurements here:
-  #define XY_DIAG_AC 94.6
-  #define XY_DIAG_BD 95.5
-  #define XY_SIDE_AD 70.5
+  #define XY_DIAG_AC 70.6
+  #define XY_DIAG_BD 70.2
+  #define XY_SIDE_AD 51.5
 
   // Or, set the default skew factors directly here
   // to override the above measurements:
@@ -1388,11 +1388,11 @@
 
   #define SKEW_CORRECTION_FOR_Z
   #if ENABLED(SKEW_CORRECTION_FOR_Z)
-    #define XZ_DIAG_AC 95.5
-    #define XZ_DIAG_BD 94.9
-    #define YZ_DIAG_AC 95.4
-    #define YZ_DIAG_BD 95.2
-    #define YZ_SIDE_AD 70.4
+    #define XZ_DIAG_AC 70.2
+    #define XZ_DIAG_BD 70.8
+    #define YZ_DIAG_AC 70.5
+    #define YZ_DIAG_BD 70.3
+    #define YZ_SIDE_AD 52.5
     //#define XZ_SKEW_FACTOR 0.0
     //#define YZ_SKEW_FACTOR 0.0
   #endif

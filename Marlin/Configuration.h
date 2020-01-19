@@ -412,6 +412,7 @@
 #define TEMP_SENSOR_4 0
 #define TEMP_SENSOR_5 0
 #define TEMP_SENSOR_BED 1
+#define TEMP_SENSOR_PROBE 0
 #define TEMP_SENSOR_CHAMBER 0
 
 // Dummy thermistor constant temperature readings, for use with 998 and 999
@@ -545,9 +546,9 @@
   //#define DEFAULT_bedKd 1675.16
 
   // Ultrabase 12v + 0.3mm Heat conducting into 4mm borosilicate (PID-Autotune: M303 E-1 S60 C5):
-  #define DEFAULT_bedKp 295.00
-  #define DEFAULT_bedKi 35.65
-  #define DEFAULT_bedKd 210.21
+  #define DEFAULT_bedKp 97.62
+  #define DEFAULT_bedKi 19.5
+  #define DEFAULT_bedKd 325.71
 
   // FIND YOUR OWN: "M303 E-1 C8 S90" to run autotune on the bed at 90 degreesC for 8 cycles.
 #endif // PIDTEMPBED
@@ -666,12 +667,13 @@
  *
  * A4988 is assumed for unspecified drivers.
  *
- * Options: A4988, A5984, DRV8825, LV8729, L6470, TB6560, TB6600, TMC2100,
+ * Options: A4988, A5984, DRV8825, LV8729, L6470, L6474, POWERSTEP01,
+ *          TB6560, TB6600, TMC2100,
  *          TMC2130, TMC2130_STANDALONE, TMC2160, TMC2160_STANDALONE,
  *          TMC2208, TMC2208_STANDALONE, TMC2209, TMC2209_STANDALONE,
  *          TMC26X,  TMC26X_STANDALONE,  TMC2660, TMC2660_STANDALONE,
  *          TMC5130, TMC5130_STANDALONE, TMC5160, TMC5160_STANDALONE
- * :['A4988', 'A5984', 'DRV8825', 'LV8729', 'L6470', 'TB6560', 'TB6600', 'TMC2100', 'TMC2130', 'TMC2130_STANDALONE', 'TMC2160', 'TMC2160_STANDALONE', 'TMC2208', 'TMC2208_STANDALONE', 'TMC2209', 'TMC2209_STANDALONE', 'TMC26X', 'TMC26X_STANDALONE', 'TMC2660', 'TMC2660_STANDALONE', 'TMC5130', 'TMC5130_STANDALONE', 'TMC5160', 'TMC5160_STANDALONE']
+ * :['A4988', 'A5984', 'DRV8825', 'LV8729', 'L6470', 'L6474', 'POWERSTEP01', 'TB6560', 'TB6600', 'TMC2100', 'TMC2130', 'TMC2130_STANDALONE', 'TMC2160', 'TMC2160_STANDALONE', 'TMC2208', 'TMC2208_STANDALONE', 'TMC2209', 'TMC2209_STANDALONE', 'TMC26X', 'TMC26X_STANDALONE', 'TMC2660', 'TMC2660_STANDALONE', 'TMC5130', 'TMC5130_STANDALONE', 'TMC5160', 'TMC5160_STANDALONE']
  */
 #define X_DRIVER_TYPE  TMC2208
 #define Y_DRIVER_TYPE  TMC2208
@@ -939,7 +941,7 @@
  *
  * Specify a Probe position as { X, Y, Z }
  */
-#define NOZZLE_TO_PROBE_OFFSET { -26, -40, -1.38 }
+#define NOZZLE_TO_PROBE_OFFSET { -26, -40, -1.36 }
 
 // Most probes should stay away from the edges of the bed, but
 // with NOZZLE_AS_PROBE this can be negative for a wider probing area.
@@ -1961,10 +1963,11 @@
 // FYSETC variant of the MINI12864 graphic controller with SD support
 // https://wiki.fysetc.com/Mini12864_Panel/
 //
-//#define FYSETC_MINI_12864_X_X  // Type C/D/E/F. No tunable RGB Backlight by default
-//#define FYSETC_MINI_12864_1_2  // Type C/D/E/F. Simple RGB Backlight (always on)
-//#define FYSETC_MINI_12864_2_0  // Type A/B. Discreet RGB Backlight
-//#define FYSETC_MINI_12864_2_1  // Type A/B. Neopixel RGB Backlight
+//#define FYSETC_MINI_12864_X_X    // Type C/D/E/F. No tunable RGB Backlight by default
+//#define FYSETC_MINI_12864_1_2    // Type C/D/E/F. Simple RGB Backlight (always on)
+//#define FYSETC_MINI_12864_2_0    // Type A/B. Discreet RGB Backlight
+//#define FYSETC_MINI_12864_2_1    // Type A/B. Neopixel RGB Backlight
+//#define FYSETC_GENERIC_12864_1_1 // Larger display with basic ON/OFF backlight.
 
 //
 // Factory display for Creality CR-10
@@ -1974,6 +1977,11 @@
 // (For CR-10 owners who want to replace the Melzi Creality board but retain the display)
 //
 //#define CR10_STOCKDISPLAY
+
+//
+// Ender-2 OEM display, a variant of the MKS_MINI_12864
+//
+//#define ENDER2_STOCKDISPLAY
 
 //
 // ANET and Tronxy Graphical Controller
@@ -2043,9 +2051,11 @@
 //=============================================================================
 
 //
-// DGUS Touch Display with DWIN OS
+// DGUS Touch Display with DWIN OS. (Choose one.)
 //
-//#define DGUS_LCD
+//#define DGUS_LCD_UI_ORIGIN
+//#define DGUS_LCD_UI_FYSETC
+//#define DGUS_LCD_UI_HIPRECY
 
 //
 // Touch-screen LCD for Malyan M200 printers

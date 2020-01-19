@@ -70,7 +70,7 @@
 #include "../core/language.h"
 #include "../gcode/parser.h"
 
-#include "../Marlin.h"
+#include "../MarlinCore.h"
 
 #if HAS_LEVELING
   #include "../feature/bedlevel/bedlevel.h"
@@ -1395,7 +1395,7 @@ void Planner::check_axes_activity() {
 
       #if ENABLED(ENABLE_LEVELING_FADE_HEIGHT)
         const float fade_scaling_factor = fade_scaling_factor_for_z(raw.z);
-      #else
+      #elif DISABLED(MESH_BED_LEVELING)
         constexpr float fade_scaling_factor = 1.0;
       #endif
 
@@ -1432,7 +1432,7 @@ void Planner::check_axes_activity() {
 
         #if ENABLED(ENABLE_LEVELING_FADE_HEIGHT)
           const float fade_scaling_factor = fade_scaling_factor_for_z(raw.z);
-        #else
+        #elif DISABLED(MESH_BED_LEVELING)
           constexpr float fade_scaling_factor = 1.0;
         #endif
 

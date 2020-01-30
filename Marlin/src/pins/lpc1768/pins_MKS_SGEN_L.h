@@ -168,15 +168,17 @@
 #define HEATER_0_PIN       P2_07
 #define CONTROLLER_FAN_PIN P2_04 // Change From Heater 1 to Control Fan Pin
 //#if HOTENDS == 1
-//  #ifndef FAN1_PIN
-  //  #define FAN1_PIN       P2_06
-//  #endif
+  //#ifndef FAN1_PIN
+    //#define FAN1_PIN       P2_06
+  //#endif
 //#else
-//  #ifndef HEATER_1_PIN
+ // #ifndef HEATER_1_PIN
   //  #define HEATER_1_PIN   P2_06
-//  #endif
+  //#endif
 //#endif
-#define FAN_PIN          P2_06
+//#ifndef FAN_PIN
+  #define FAN_PIN          P2_06
+//#endif
 
 //
 // Misc. Functions

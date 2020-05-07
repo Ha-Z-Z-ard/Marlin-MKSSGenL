@@ -76,13 +76,6 @@
 // Nanoseconds per cycle
 #define NANOSECONDS_PER_CYCLE (1000000000.0 / F_CPU)
 
-// Macros to make sprintf_P read from PROGMEM (AVR extension)
-#ifdef __AVR__
-  #define S_FMT "%S"
-#else
-  #define S_FMT "%s"
-#endif
-
 // Macros to make a string from a macro
 #define STRINGIFY_(M) #M
 #define STRINGIFY(M) STRINGIFY_(M)
@@ -194,6 +187,9 @@
 #define DISABLED(V...)      DO(DIS,&&,V)
 
 #define TERN(O,A,B)         _TERN(_ENA_1(O),B,A)    // OPTION converted to '0' or '1'
+#define TERN0(O,A)          _TERN(_ENA_1(O),0,A)    // OPTION converted to A or '0'
+#define TERN1(O,A)          _TERN(_ENA_1(O),1,A)    // OPTION converted to A or '1'
+#define TERN_(O,A)          _TERN(_ENA_1(O),,A)     // OPTION converted to A or '<nul>'
 #define _TERN(E,V...)       __TERN(_CAT(T_,E),V)    // Prepend 'T_' to get 'T_0' or 'T_1'
 #define __TERN(T,V...)      ___TERN(_CAT(_NO,T),V)  // Prepend '_NO' to get '_NOT_0' or '_NOT_1'
 #define ___TERN(P,V...)     THIRD(P,V)              // If first argument has a comma, A. Else B.
@@ -288,12 +284,6 @@
 #define LROUND(x)   lroundf(x)
 #define FMOD(x, y)  fmodf(x, y)
 #define HYPOT(x,y)  SQRT(HYPOT2(x,y))
-
-#ifdef TARGET_LPC1768
-  #define I2C_ADDRESS(A) ((A) << 1)
-#else
-  #define I2C_ADDRESS(A) A
-#endif
 
 // Use NUM_ARGS(__VA_ARGS__) to get the number of variadic arguments
 #define _NUM_ARGS(_,Z,Y,X,W,V,U,T,S,R,Q,P,O,N,M,L,K,J,I,H,G,F,E,D,C,B,A,OUT,...) OUT

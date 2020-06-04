@@ -128,6 +128,10 @@ uint8_t Planner::delay_before_delivering;       // This counter delays delivery 
 
 planner_settings_t Planner::settings;           // Initialized by settings.load()
 
+#if ENABLED(LASER_POWER_INLINE)
+  laser_state_t Planner::laser;              // Current state for blocks
+#endif
+
 uint32_t Planner::max_acceleration_steps_per_s2[XYZE_N]; // (steps/s^2) Derived from mm_per_s2
 
 float Planner::steps_to_mm[XYZE_N];             // (mm) Millimeters per step
@@ -149,6 +153,11 @@ float Planner::steps_to_mm[XYZE_N];             // (mm) Millimeters per step
 
 #if ENABLED(DISTINCT_E_FACTORS)
   uint8_t Planner::last_extruder = 0;     // Respond to extruder change
+#endif
+
+#if ENABLED(DIRECT_STEPPING)
+  uint32_t Planner::last_page_step_rate = 0;
+  xyze_bool_t Planner::last_page_dir{0};
 #endif
 
 #if EXTRUDERS
@@ -235,6 +244,10 @@ void Planner::init() {
   TERN_(ABL_PLANAR, bed_level_matrix.set_to_identity());
   clear_block_buffer();
   delay_before_delivering = 0;
+  #if ENABLED(DIRECT_STEPPING)
+    last_page_step_rate = 0;
+    last_page_dir.reset();
+  #endif
 }
 
 #if ENABLED(S_CURVE_ACCELERATION)
@@ -906,7 +919,7 @@ void Planner::calculate_trapezoid_for_block(block_t* const block, const float &e
       streaming operating conditions. Use for planning optimizations by avoiding recomputing parts of the
       planner buffer that don't change with the addition of a new block, as describe above. In addition,
       this block can never be less than block_buffer_tail and will always be pushed forward and maintain
-      this requirement when encountered by the Planner::discard_current_block() routine during a cycle.
+      this requirement when encountered by the Planner::release_current_block() routine during a cycle.
 
   NOTE: Since the planner only computes on what's in the planner buffer, some motions with lots of short
   line segments, like G2/3 arcs or complex curves, may seem to move slow. This is because there simply isn't
@@ -994,8 +1007,8 @@ void Planner::reverse_pass() {
     // Perform the reverse pass
     block_t *current = &block_buffer[block_index];
 
-    // Only consider non sync blocks
-    if (!TEST(current->flag, BLOCK_BIT_SYNC_POSITION)) {
+    // Only consider non sync and page blocks
+    if (!TEST(current->flag, BLOCK_BIT_SYNC_POSITION) && !IS_PAGE(current)) {
       reverse_pass_kernel(current, next);
       next = current;
     }
@@ -1089,8 +1102,8 @@ void Planner::forward_pass() {
     // Perform the forward pass
     block = &block_buffer[block_index];
 
-    // Skip SYNC blocks
-    if (!TEST(block->flag, BLOCK_BIT_SYNC_POSITION)) {
+    // Skip SYNC and page blocks
+    if (!TEST(block->flag, BLOCK_BIT_SYNC_POSITION) && !IS_PAGE(block)) {
       // If there's no previous block or the previous block is not
       // BUSY (thus, modifiable) run the forward_pass_kernel. Otherwise,
       // the previous block became BUSY, so assume the current block's
@@ -1139,8 +1152,8 @@ void Planner::recalculate_trapezoids() {
 
     next = &block_buffer[block_index];
 
-    // Skip sync blocks
-    if (!TEST(next->flag, BLOCK_BIT_SYNC_POSITION)) {
+    // Skip sync and page blocks
+    if (!TEST(next->flag, BLOCK_BIT_SYNC_POSITION) && !IS_PAGE(next)) {
       next_entry_speed = SQRT(next->entry_speed_sqr);
 
       if (block) {
@@ -1790,8 +1803,8 @@ bool Planner::_populate_block(block_t * const block, bool split_move,
 
   // Update block laser power
   #if ENABLED(LASER_POWER_INLINE)
-    block->laser.status = settings.laser.status;
-    block->laser.power = settings.laser.power;
+    block->laser.status = laser.status;
+    block->laser.power = laser.power;
   #endif
 
   // Number of steps for each axis
@@ -2256,16 +2269,17 @@ bool Planner::_populate_block(block_t * const block, bool split_move,
         { steps_dist_mm.x, steps_dist_mm.y, steps_dist_mm.z, steps_dist_mm.e }
       #endif
     ;
-    unit_vec *= inverse_millimeters;
 
-    #if IS_CORE && HAS_JUNCTION_DEVIATION
-      /**
-       * On CoreXY the length of the vector [A,B] is SQRT(2) times the length of the head movement vector [X,Y].
-       * So taking Z and E into account, we cannot scale to a unit vector with "inverse_millimeters".
-       * => normalize the complete junction vector
-       */
-      normalize_junction_vector(unit_vec);
-    #endif
+    /**
+     * On CoreXY the length of the vector [A,B] is SQRT(2) times the length of the head movement vector [X,Y].
+     * So taking Z and E into account, we cannot scale to a unit vector with "inverse_millimeters".
+     * => normalize the complete junction vector.
+     * Elsewise, when needed JD factors in the E component
+     */
+    if (ENABLED(IS_CORE) || esteps > 0)
+      normalize_junction_vector(unit_vec);  // Normalize with XYZE components
+    else
+      unit_vec *= inverse_millimeters;      // Use pre-calculated (1 / SQRT(x^2 + y^2 + z^2))
 
     // Skip first block or when previous_nominal_speed is used as a flag for homing and offset cycles.
     if (moves_queued && !UNEAR_ZERO(previous_nominal_speed_sqr)) {
@@ -2305,16 +2319,15 @@ bool Planner::_populate_block(block_t * const block, bool split_move,
 
             /**
              *  // Generate the JD Lookup Table
-             *  constexpr float c = 1.00751317f; // Correction factor to center error around 0
+             *  constexpr float c = 1.00751495f; // Correction factor to center error around 0
              *  for (int i = 0; i < jd_lut_count - 1; ++i) {
              *    const float x0 = (sq(i) - 1) / sq(i),
-             *                y0 = acos(x0) * (i ? c : 1),
-             *                x1 = 0.5 * x0 + 0.5,
-             *                y1 = acos(x1) * c;
+             *                y0 = acos(x0) * (i == 0 ? 1 : c),
+             *                x1 = i < jd_lut_count - 1 ?  0.5 * x0 + 0.5 : 0.999999f,
+             *                y1 = acos(x1) * (i < jd_lut_count - 1 ? c : 1);
              *    jd_lut_k[i] = (y0 - y1) / (x0 - x1);
              *    jd_lut_b[i] = (y1 * x0 - y0 * x1) / (x0 - x1);
              *  }
-             *  jd_lut_k[jd_lut_count - 1] = jd_lut_b[jd_lut_count - 1] = 0;
              *
              *  // Compute correction factor (Set c to 1.0f first!)
              *  float min = INFINITY, max = -min;
@@ -2327,22 +2340,24 @@ bool Planner::_populate_block(block_t * const block, bool split_move,
              *  }
              *  fprintf(stderr, "%.9gf, ", (min + max) / 2);
              */
-            static constexpr int16_t  jd_lut_count = 15;
-            static constexpr uint16_t jd_lut_tll   = 1 << jd_lut_count;
-            static constexpr int16_t  jd_lut_tll0  = __builtin_clz(jd_lut_tll) + 1; // i.e., 16 - jd_lut_count
+            static constexpr int16_t  jd_lut_count = 16;
+            static constexpr uint16_t jd_lut_tll   = _BV(jd_lut_count - 1);
+            static constexpr int16_t  jd_lut_tll0  = __builtin_clz(jd_lut_tll) + 1; // i.e., 16 - jd_lut_count + 1
             static constexpr float jd_lut_k[jd_lut_count] PROGMEM = {
-              -1.03146219f, -1.30760407f, -1.75205469f, -2.41705418f, -3.37768555f,
-              -4.74888229f, -6.69648552f, -9.45659828f, -13.3640289f, -18.8927879f,
-              -26.7136307f, -37.7754059f, -53.4200745f, -75.5457306f,   0.0f };
+              -1.03145837f, -1.30760646f, -1.75205851f, -2.41705704f,
+              -3.37769222f, -4.74888992f, -6.69649887f, -9.45661736f,
+              -13.3640480f, -18.8928222f, -26.7136841f, -37.7754593f,
+              -53.4201813f, -75.5458374f, -106.836761f, -218.532821f };
             static constexpr float jd_lut_b[jd_lut_count] PROGMEM = {
-              1.57079637f, 1.70886743f, 2.04220533f, 2.62408018f, 3.52467203f,
-              4.85301876f, 6.77019119f, 9.50873947f, 13.4009094f, 18.9188652f,
-              26.7320709f, 37.7884521f, 53.4292908f, 75.5522461f,  0.0f };
+               1.57079637f,  1.70887053f,  2.04220939f,  2.62408352f,
+               3.52467871f,  4.85302639f,  6.77020454f,  9.50875854f,
+               13.4009285f,  18.9188995f,  26.7321243f,  37.7885055f,
+               53.4293975f,  75.5523529f,  106.841369f,  218.534011f };
 
             const float neg = junction_cos_theta < 0 ? -1 : 1,
                         t = neg * junction_cos_theta;
 
-            const int16_t idx = (t == 0.0f) ? 0 : __builtin_clz(uint16_t((1.0f - t) * jd_lut_tll)) - jd_lut_tll0;
+            const int16_t idx = (t < 0.00000003f) ? 0 : __builtin_clz(uint16_t((1.0f - t) * jd_lut_tll)) - jd_lut_tll0;
 
             float junction_theta = t * pgm_read_float(&jd_lut_k[idx]) + pgm_read_float(&jd_lut_b[idx]);
             if (neg > 0) junction_theta = RADIANS(180) - junction_theta; // acos(-t)
@@ -2442,16 +2457,16 @@ bool Planner::_populate_block(block_t * const block, bool split_move,
       // Pick the smaller of the nominal speeds. Higher speed shall not be achieved at the junction during coasting.
       CACHED_SQRT(previous_nominal_speed, previous_nominal_speed_sqr);
 
-      vmax_junction = _MIN(nominal_speed, previous_nominal_speed);
+      float smaller_speed_factor = 1.0f;
+      if (nominal_speed < previous_nominal_speed) {
+        vmax_junction = nominal_speed;
+        smaller_speed_factor = vmax_junction / previous_nominal_speed;
+      }
+      else
+        vmax_junction = previous_nominal_speed;
 
       // Now limit the jerk in all axes.
-      const float smaller_speed_factor = vmax_junction / previous_nominal_speed;
-      #if HAS_LINEAR_E_JERK
-        LOOP_XYZ(axis)
-      #else
-        LOOP_XYZE(axis)
-      #endif
-      {
+      TERN(HAS_LINEAR_E_JERK, LOOP_XYZ, LOOP_XYZE)(axis) {
         // Limit an axis. We have to differentiate: coasting, reversal of an axis, full stop.
         float v_exit = previous_speed[axis] * smaller_speed_factor,
               v_entry = current_speed[axis];
@@ -2487,9 +2502,9 @@ bool Planner::_populate_block(block_t * const block, bool split_move,
     previous_safe_speed = safe_speed;
 
     #if HAS_JUNCTION_DEVIATION
-      vmax_junction_sqr = _MIN(vmax_junction_sqr, sq(vmax_junction));
+      NOMORE(vmax_junction_sqr, sq(vmax_junction));   // Throttle down to max speed
     #else
-      vmax_junction_sqr = sq(vmax_junction);
+      vmax_junction_sqr = sq(vmax_junction);          // Go up or down to the new speed
     #endif
 
   #endif // Classic Jerk Limiting
@@ -2715,6 +2730,69 @@ bool Planner::buffer_line(const float &rx, const float &ry, const float &rz, con
     return buffer_segment(machine, fr_mm_s, extruder, millimeters);
   #endif
 } // buffer_line()
+
+#if ENABLED(DIRECT_STEPPING)
+
+  void Planner::buffer_page(const page_idx_t page_idx, const uint8_t extruder, const uint16_t num_steps) {
+    if (!last_page_step_rate) {
+      kill(GET_TEXT(MSG_BAD_PAGE_SPEED));
+      return;
+    }
+
+    uint8_t next_buffer_head;
+    block_t * const block = get_next_free_block(next_buffer_head);
+
+    block->flag = BLOCK_FLAG_IS_PAGE;
+
+    #if FAN_COUNT > 0
+      FANS_LOOP(i) block->fan_speed[i] = thermalManager.fan_speed[i];
+    #endif
+
+    #if EXTRUDERS > 1
+      block->extruder = extruder;
+    #endif
+
+    block->page_idx = page_idx;
+
+    block->step_event_count = num_steps;
+    block->initial_rate =
+      block->final_rate =
+      block->nominal_rate = last_page_step_rate; // steps/s
+
+    block->accelerate_until = 0;
+    block->decelerate_after = block->step_event_count;
+
+    // Will be set to last direction later if directional format.
+    block->direction_bits = 0;
+
+    #define PAGE_UPDATE_DIR(AXIS) \
+      if (!last_page_dir[_AXIS(AXIS)]) SBI(block->direction_bits, _AXIS(AXIS));
+
+    if (!DirectStepping::Config::DIRECTIONAL) {
+      PAGE_UPDATE_DIR(X);
+      PAGE_UPDATE_DIR(Y);
+      PAGE_UPDATE_DIR(Z);
+      PAGE_UPDATE_DIR(E);
+    }
+
+    // If this is the first added movement, reload the delay, otherwise, cancel it.
+    if (block_buffer_head == block_buffer_tail) {
+      // If it was the first queued block, restart the 1st block delivery delay, to
+      // give the planner an opportunity to queue more movements and plan them
+      // As there are no queued movements, the Stepper ISR will not touch this
+      // variable, so there is no risk setting this here (but it MUST be done
+      // before the following line!!)
+      delay_before_delivering = BLOCK_DELAY_FOR_1ST_MOVE;
+    }
+
+    // Move buffer head
+    block_buffer_head = next_buffer_head;
+
+    enable_all_steppers();
+    stepper.wake_up();
+  }
+
+#endif // DIRECT_STEPPING
 
 /**
  * Directly set the planner ABC position (and stepper positions)
